@@ -7,7 +7,7 @@ import './styles.css';
 type Role = 'ADMIN' | 'AGENT' | 'USER';
 type User = { id:number; name:string; email:string; role:Role };
 type TicketItem = { id:number; title:string; description:string; category:string; priority:string; status:string; requester_name:string; assignee_name?:string; created_at:string; updated_at:string };
-const API = '/api';
+const API = 'https://deskflow-help-desk.onrender.com/api';
 
 async function api<T>(path:string, options:RequestInit = {}): Promise<T> {
   const token = localStorage.getItem('token');
