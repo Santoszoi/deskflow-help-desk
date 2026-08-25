@@ -78,20 +78,20 @@ function initDb() {
     const password = bcrypt.hashSync('123456', 10);
     insert.run('Administrador', 'admin@deskflow.local', password, 'ADMIN');
     insert.run('Ana Suporte', 'ana@deskflow.local', password, 'AGENT');
-    insert.run('Carlos NOC', 'carlos@deskflow.local', password, 'AGENT');
+    insert.run('Marcos NOC', 'Marcos@deskflow.local', password, 'AGENT');
     insert.run('Usuário Demo', 'usuario@deskflow.local', password, 'USER');
 
     const getId = db.prepare('SELECT id FROM users WHERE email = ?');
     const admin = getId.get('admin@deskflow.local') as { id: number };
     const ana = getId.get('ana@deskflow.local') as { id: number };
-    const carlos = getId.get('carlos@deskflow.local') as { id: number };
+    const Marcos = getId.get('Marcos@deskflow.local') as { id: number };
     const user = getId.get('usuario@deskflow.local') as { id: number };
 
     const insertTicket = db.prepare(`INSERT INTO tickets (title, description, category, priority, status, requester_id, assignee_id, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', ?), datetime('now', ?))`);
     const t1 = insertTicket.run('Sem acesso à VPN corporativa', 'Ao conectar na VPN, recebo erro de autenticação mesmo após redefinir a senha.', 'Acesso / VPN', 'ALTA', 'EM_ATENDIMENTO', user.id, ana.id, '-2 hours', '-35 minutes');
     const t2 = insertTicket.run('Impressora do financeiro offline', 'A impressora HP do setor financeiro não responde na rede.', 'Hardware', 'MEDIA', 'ABERTO', user.id, null, '-5 hours', '-5 hours');
-    const t3 = insertTicket.run('Link secundário com perda de pacotes', 'Monitoramento identificou perda intermitente no link de contingência.', 'Rede / Telecom', 'CRITICA', 'AGUARDANDO_USUARIO', admin.id, carlos.id, '-1 day', '-3 hours');
+    const t3 = insertTicket.run('Link secundário com perda de pacotes', 'Monitoramento identificou perda intermitente no link de contingência.', 'Rede / Telecom', 'CRITICA', 'AGUARDANDO_USUARIO', admin.id, Marcos.id, '-1 day', '-3 hours');
     const t4 = insertTicket.run('Instalação do Microsoft 365', 'Solicito instalação do pacote Office no notebook recém-formatado.', 'Software', 'BAIXA', 'RESOLVIDO', user.id, ana.id, '-2 days', '-1 day');
 
     const hist = db.prepare('INSERT INTO ticket_history (ticket_id, user_id, action, details, created_at) VALUES (?, ?, ?, ?, datetime(\'now\', ?))');
