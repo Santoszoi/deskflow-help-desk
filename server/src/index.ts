@@ -39,6 +39,7 @@ function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       description TEXT NOT NULL,
+      asset TEXT,
       category TEXT NOT NULL,
       priority TEXT NOT NULL CHECK(priority IN ('BAIXA','MEDIA','ALTA','CRITICA')),
       status TEXT NOT NULL DEFAULT 'ABERTO' CHECK(status IN ('ABERTO','EM_ATENDIMENTO','AGUARDANDO_USUARIO','RESOLVIDO','FECHADO')),
@@ -71,7 +72,13 @@ function initDb() {
       FOREIGN KEY(user_id) REFERENCES users(id)
     );
   `);
+  const ticketColumns = db
+  .prepare("PRAGMA table_info(tickets)")
+  .all() as { name: string }[];
 
+if (!ticketColumns.some((column) => column.name === "asset")) {
+  db.exec("ALTER TABLE tickets ADD COLUMN asset TEXT");
+}
   const count = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
   if (count.count === 0) {
     const insert = db.prepare('INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)');
@@ -156,12 +163,24 @@ app.get('/api/tickets', auth, (req: AuthedRequest, res) => {
 });
 
 app.post('/api/tickets', auth, (req: AuthedRequest, res) => {
-  const { title, description, category, priority = 'MEDIA' } = req.body as any;
+  const { title, description, asset, category, priority = 'MEDIA' } = req.body as any;
   if (!title?.trim() || !description?.trim() || !category?.trim()) return res.status(400).json({ message: 'Título, descrição e categoria são obrigatórios.' });
   const allowed = ['BAIXA','MEDIA','ALTA','CRITICA'];
   if (!allowed.includes(priority)) return res.status(400).json({ message: 'Prioridade inválida.' });
-  const result = db.prepare('INSERT INTO tickets (title, description, category, priority, requester_id) VALUES (?, ?, ?, ?, ?)')
-    .run(title.trim(), description.trim(), category.trim(), priority, req.user!.id);
+  const result = db
+  .prepare(
+    `INSERT INTO tickets
+    (title, description, asset, category, priority, requester_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`
+  )
+  .run(
+    title.trim(),
+    description.trim(),
+    asset?.trim() || null,
+    category.trim(),
+    priority,
+    req.user!.id
+  );
   db.prepare('INSERT INTO ticket_history (ticket_id, user_id, action, details) VALUES (?, ?, ?, ?)')
     .run(result.lastInsertRowid, req.user!.id, 'CHAMADO_CRIADO', `Prioridade ${priority}`);
   res.status(201).json({ id: result.lastInsertRowid });
