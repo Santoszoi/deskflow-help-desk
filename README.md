@@ -106,7 +106,7 @@ For a local demonstration, the seeded accounts use the password `123456`.
 | --- | --- |
 | Administrator | `admin@deskflow.local` |
 | Agent | `ana@deskflow.local` |
-| Agent | `carlos@deskflow.local` |
+| Agent | `Marcos@deskflow.local` |
 | User | `usuario@deskflow.local` |
 
 These are public demonstration credentials, not suitable for real business data. Account names above reflect the seed data in the repository.
