@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sqliteSchema } from './schema.js';
+import { mysqlTlsOptions } from './mysql-tls.js';
 
 export const mysqlSchema = [
 `CREATE TABLE IF NOT EXISTS users (
@@ -42,7 +43,7 @@ export async function connectDatabase() {
   pool = mysql.createPool({host:process.env.DB_HOST || '127.0.0.1', port:Number(process.env.DB_PORT || 3306),
    user:process.env.DB_USER || 'deskflow', password:process.env.DB_PASSWORD,
    database:process.env.DB_NAME || 'deskflow', connectionLimit:10, timezone:'Z',dateStrings:true,
-   charset:'utf8mb4'});
+   charset:'utf8mb4', ssl:mysqlTlsOptions()});
   try {for(const sql of mysqlSchema) await pool.execute(sql)} catch(error){await pool.end();throw error}
  } else {
   const file = process.env.SQLITE_PATH || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../data/helpdesk.db');
