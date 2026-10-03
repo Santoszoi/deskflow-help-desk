@@ -6,3 +6,6 @@
 [build.environment]
   NODE_VERSION = "24"
   API_INTERNAL_URL = "https://deskflow-help-desk.onrender.com"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
