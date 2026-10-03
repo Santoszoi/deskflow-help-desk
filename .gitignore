@@ -6,3 +6,11 @@ server/dist/
 server/data/*.db*
 .env
 .DS_Store
+
+client/.next/
+*.tsbuildinfo
+.env.*
+!.env.example
+!**/.env.example
+
+test-results/
