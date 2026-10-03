@@ -1,0 +1,49 @@
+services:
+  deskflow-app:
+    build: .
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+  api:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    environment:
+      NODE_ENV: production
+      JWT_SECRET: ${JWT_SECRET:?Run npm run setup first}
+      DB_CLIENT: mysql
+      DB_HOST: deskflow-db
+      DB_USER: deskflow
+      DB_PASSWORD: ${DB_PASSWORD:?Run npm run setup first}
+      DB_NAME: deskflow
+      DEMO_SEED: ${DEMO_SEED:-false}
+    depends_on:
+      deskflow-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3333/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  deskflow-db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: deskflow
+      MYSQL_USER: deskflow
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Run npm run setup first}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Run npm run setup first}
+      TZ: UTC
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+volumes:
+  mysql_data:
