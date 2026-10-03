@@ -1,0 +1,37 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+import {chromium} from 'playwright';
+const base=process.env.TEST_WEB_URL || 'http://127.0.0.1:3000';
+test('browser: login, dashboard, ticket form, comments, deep routes and mobile',async()=>{
+ const browser=await chromium.launch();const page=await browser.newPage({viewport:{width:1440,height:900}});
+ const errors=[];page.on('pageerror',error=>errors.push(error.message));
+ await mkdir('test-results',{recursive:true});
+ try {
+  await page.goto(base+'/login');
+  await page.getByLabel('E-mail',{exact:true}).fill('admin@deskflow.local');
+  await page.getByLabel('Senha',{exact:true}).fill('123456');
+  await page.getByRole('button',{name:'Entrar',exact:true}).click();
+  await page.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();
+  await page.screenshot({path:'test-results/dashboard.png',fullPage:true});
+  await page.locator('.sidebar').getByRole('link',{name:'Novo chamado',exact:true}).click();
+  await page.getByRole('heading',{name:'Novo chamado',exact:true}).waitFor();
+  const title='Browser test '+Date.now();
+  await page.getByLabel('Título',{exact:true}).fill(title);
+  await page.getByLabel('Equipamento / Ativo').fill('PC-BROWSER');
+  await page.getByLabel('Categoria',{exact:true}).selectOption({label:'Software'});
+  await page.getByLabel('Descrição',{exact:true}).fill('Created through the Next.js interface');
+  await page.getByRole('button',{name:'Abrir chamado',exact:true}).click();
+  await page.getByRole('heading',{name:title,exact:true}).waitFor();
+  await Promise.all([page.waitForResponse(r=>r.url().includes('/api/tickets/')&&r.request().method()==='PATCH'&&r.status()===200),page.getByLabel('Status',{exact:true}).selectOption('EM_ATENDIMENTO')]);
+  await page.getByPlaceholder('Adicione uma atualização, teste realizado ou orientação...').fill('Browser comment persisted');
+  await page.getByRole('button',{name:'Adicionar comentário',exact:true}).click();
+  await page.getByText('Browser comment persisted',{exact:true}).waitFor();
+  await page.reload();await page.getByRole('heading',{name:title,exact:true}).waitFor();await page.getByText('Browser comment persisted',{exact:true}).waitFor();
+  await page.screenshot({path:'test-results/ticket.png',fullPage:true});
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/mobile.png',fullPage:true});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1),false,'Horizontal overflow on mobile');
+  assert.deepEqual(errors,[],'Browser runtime errors');
+ } catch(error){await page.screenshot({path:'test-results/failure.png',fullPage:true});throw error}
+ finally{await browser.close()}
+});

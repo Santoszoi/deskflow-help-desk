@@ -10,10 +10,13 @@
     "test": "node --test tests/api.test.mjs",
     "typecheck": "npm run typecheck --prefix client && npm run build --prefix server",
     "setup": "node scripts/setup.mjs",
-    "test:web": "node --test tests/web.test.mjs"
+    "test:web": "node --test tests/web.test.mjs",
+    "test:compose": "node --test tests/compose.test.mjs",
+    "test:browser": "node --test tests/browser.test.mjs"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "playwright": "^1.63.0"
   },
   "engines": {
     "node": ">=24 <25"

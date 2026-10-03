@@ -1,0 +1,56 @@
+name: DeskFlow migration checks
+on:
+  push:
+    branches: [main, feat/nextjs-docker-mysql]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: deskflow-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  types-and-sqlite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+            server/package-lock.json
+      - run: npm ci && npm ci --prefix client && npm ci --prefix server
+      - run: npm run build && npm run typecheck && npm test && npm run test:web
+  docker-mysql-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run setup
+      - run: docker compose up --build -d --wait --wait-timeout 300
+      - run: npm run test:compose
+      - run: npm run test:browser
+      - name: Container logs
+        if: always()
+        run: docker compose logs --no-color
+      - name: Browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deskflow-browser-evidence
+          path: test-results/
+          if-no-files-found: ignore
+      - name: Remove disposable test containers
+        if: always()
+        run: docker compose down -v
