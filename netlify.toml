@@ -1,0 +1,8 @@
+[build]
+  base = "client"
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "24"
+  API_INTERNAL_URL = "https://deskflow-help-desk.onrender.com"
