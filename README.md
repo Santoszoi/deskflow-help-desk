@@ -27,8 +27,10 @@ The frontend was migrated from Vite. Installing a dependency alone is not the in
 
 ## Local setup (SQLite)
 
+The Next.js migration is currently on `feat/nextjs-docker-mysql`, under review in [PR #1](https://github.com/Santoszoi/deskflow-help-desk/pull/1).
+
 ```bash
-git clone https://github.com/Santoszoi/deskflow-help-desk.git
+git clone --branch feat/nextjs-docker-mysql https://github.com/Santoszoi/deskflow-help-desk.git
 cd deskflow-help-desk
 npm run install:all
 npm run setup
@@ -103,6 +105,8 @@ npm run test:web
 ```
 
 The web integration test checks deep routes, standalone startup and the same-origin API login proxy.
+
+With the Compose services running, `npm run test:compose` verifies real MySQL operations and persistence after restarting the API. After `npx playwright install chromium`, `npm run test:browser` checks the interface workflow and mobile layout. GitHub Actions runs these checks on this branch and uploads browser screenshots. See [validation results](docs/VALIDATION.md) and [deployment instructions](docs/DEPLOYMENT.md).
 
 The API integration test starts an isolated SQLite database, checks login, ticket creation, assignment, comments, dashboard, filters, role restrictions and persistence after restart.
 
