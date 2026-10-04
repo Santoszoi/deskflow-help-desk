@@ -1,10 +1,22 @@
-# Hosting the Next.js migration
+# Hosting DeskFlow
+
+## Current hosted environment
+
+Verified October 4, 2026:
+
+| Component | Service |
+| --- | --- |
+| Next.js frontend | https://deskflow-help-desk-app.netlify.app |
+| Express API | https://deskflow-help-desk.onrender.com |
+| Database | Aiven MySQL with verified TLS |
+
+The frontend currently requires Netlify team access. Application demo credentials do not bypass that protection. The Render health endpoint returned `database: mysql`, and the owner confirmed that a ticket survived an API redeploy. These are demonstration checks, not a production-readiness certification.
 
 ## Netlify frontend with the existing Express API
 
-Use a deploy preview for this branch before changing production.
+Use a deploy preview for future frontend changes before changing production.
 
-The branch includes `netlify.toml` with base `client`, publish `.next`, Node.js 24 and the existing Render API origin. These file settings override the old Vite build settings for this branch. The linked Netlify project is `deskflow-help-desk-app` (site ID `8cda1c1a-9c15-4e49-9e37-480b5320c0a8`). The existing API returned HTTP 200 from `/api/health` on 2026-10-03; that health response alone does not verify its database engine or deploy the new backend.
+The `main` branch includes `netlify.toml` with base `client`, publish `.next`, Node.js 24 and the Render API origin. These settings replace the former Vite build configuration. The linked Netlify project is `deskflow-help-desk-app`.
 
 1. Confirm the intended Netlify project is linked to `Santoszoi/deskflow-help-desk`.
 2. Set the base directory to `client`.
@@ -16,6 +28,26 @@ The branch includes `netlify.toml` with base `client`, publish `.next`, Node.js 
 8. Only publish to production once that preview passes and you have a backup/recovery plan for the API/database.
 
 The frontend runs on Netlify; the Express API and persistent MySQL/SQLite database run on a separate service. Netlify frontend settings alone do not create a MySQL server.
+
+## Render API and Aiven MySQL
+
+Configure the API service's environment using values from the selected database service:
+
+| Variable | Value |
+| --- | --- |
+| `DB_CLIENT` | `mysql` |
+| `DB_HOST`, `DB_PORT` | Provider host and port |
+| `DB_USER`, `DB_PASSWORD`, `DB_NAME` | Credentials and database from the same service |
+| `DB_SSL` | `true` |
+| `DB_SSL_CA` | Complete provider CA PEM, including BEGIN/END lines and real line breaks |
+| `JWT_SECRET` | Existing application secret; do not replace during a database configuration change |
+| `DEMO_SEED` | `true` only for intentional sample accounts on an empty user table |
+
+Alternatively, use `DB_SSL_CA_PATH` for a mounted CA file; do not set both CA options. Certificate verification remains enabled. Never put database credentials in frontend variables, source control or screenshots. Copy the complete password exactly, including any leading underscore; enter only the password in `DB_PASSWORD`, not a connection URI.
+
+After saving and deploying, check `/api/health`, sign in through the frontend, create a fictional ticket and comment, assign an agent, and resolve the ticket. Refresh to verify saved state. Redeploy the API and confirm the same ticket remains. A successful build alone does not verify database access.
+
+For `Access denied for user`, verify that host, user and password belong to the same running service. For a certificate-chain error, check the provider CA and TLS settings rather than disabling verification. Disabling `DEMO_SEED` does not delete or secure already-created demonstration accounts.
 
 ## All services together
 

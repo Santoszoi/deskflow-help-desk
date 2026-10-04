@@ -4,6 +4,14 @@ Responsive help desk and ticket management portfolio application built with **Ne
 
 [Source](https://github.com/Santoszoi/deskflow-help-desk) · [Marcos Solutions portfolio](https://marcossolutions.com.br)
 
+## Hosted demonstration
+
+[Open DeskFlow](https://deskflow-help-desk-app.netlify.app) (Netlify team access currently required).
+
+The hosted application uses Next.js on Netlify, Express on Render and persistent MySQL on Aiven with verified TLS. On October 4, 2026, the API health check returned `database: mysql`. The project owner confirmed ticket persistence after a Render redeploy, comments and assignment/status persistence after refresh, and dashboard updates after resolution. See [validation results](docs/VALIDATION.md) for scope and limitations.
+
+For a presentation, sign in, open a sample ticket, assign an agent, add a comment, resolve it and show the dashboard. Use fictional data only. The portfolio currently includes a separate illustrative dashboard; it is not the hosted application.
+
 ## Features
 
 - Administrator, agent and requester roles with JWT authentication.
@@ -12,7 +20,7 @@ Responsive help desk and ticket management portfolio application built with **Ne
 - Assignment, status updates, comments and history.
 - Dashboard totals, status/priority summaries and recent updates.
 - Responsive interface in Brazilian Portuguese.
-- SQLite for local development and existing databases; real MySQL queries with `mysql2` for Docker.
+- SQLite for local development and existing databases; real MySQL queries with `mysql2` for Docker and hosted deployment.
 
 ## Architecture
 
@@ -27,10 +35,10 @@ The frontend was migrated from Vite. Installing a dependency alone is not the in
 
 ## Local setup (SQLite)
 
-The Next.js migration is currently on `feat/nextjs-docker-mysql`, under review in [PR #1](https://github.com/Santoszoi/deskflow-help-desk/pull/1).
+The Next.js migration is merged into `main` ([PR #1](https://github.com/Santoszoi/deskflow-help-desk/pull/1)).
 
 ```bash
-git clone --branch feat/nextjs-docker-mysql https://github.com/Santoszoi/deskflow-help-desk.git
+git clone https://github.com/Santoszoi/deskflow-help-desk.git
 cd deskflow-help-desk
 npm run install:all
 npm run setup
@@ -80,6 +88,8 @@ When `DEMO_SEED=true`, an empty database receives public demonstration accounts 
 
 These credentials are for portfolio demonstrations. For real customer data, disable demo seeding, provision individual users, configure HTTPS and review authentication, permissions, backups and recovery. This migration does not claim production readiness or a completed accessibility audit.
 
+Disabling `DEMO_SEED` does not remove existing demo accounts or change their passwords. Demo credentials do not grant access through Netlify's separate team protection.
+
 ## Configuration
 
 | Variable | Purpose |
@@ -88,6 +98,8 @@ These credentials are for portfolio demonstrations. For real customer data, disa
 | `SQLITE_PATH` | Optional SQLite file path |
 | `DB_HOST`, `DB_PORT` | MySQL host and port |
 | `DB_USER`, `DB_PASSWORD`, `DB_NAME` | MySQL credentials and database |
+| `DB_SSL` | `true` enables TLS with certificate verification for hosted MySQL |
+| `DB_SSL_CA` or `DB_SSL_CA_PATH` | Provider CA as a full PEM value or file path; use only one |
 | `JWT_SECRET` | Required, at least 32 characters in production |
 | `DEMO_SEED` | Enable public sample accounts explicitly |
 | `CORS_ORIGIN` | Optional comma-separated direct API browser origins |
@@ -101,6 +113,7 @@ Compose sets `DB_CLIENT=mysql`. To run the API against your own MySQL server wit
 npm run typecheck
 npm run build
 npm test
+node --test tests/mysql-tls.test.mjs
 npm run test:web
 ```
 
@@ -114,7 +127,7 @@ To exercise the same workflow with a disposable MySQL database, set `TEST_DB_CLI
 
 ## Deployment changes
 
-This version needs a Next.js server (or a compatible Next.js hosting adapter) and the Express API. The old Vite `client/dist` static deployment instructions no longer apply. Express remains a separate API and does not serve the frontend. Update hosting build/publish settings before deploying this branch. Existing hosted services are not changed by this code migration.
+This version uses a Next.js hosting adapter on Netlify and a separate Express API on Render. The old Vite `client/dist` static deployment instructions no longer apply. MySQL data is hosted separately on Aiven. See [deployment instructions](docs/DEPLOYMENT.md) for configuration and recovery checks.
 
 ## Author
 

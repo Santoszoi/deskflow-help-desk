@@ -30,8 +30,21 @@ Application/configuration commit: `7298dfb17a0ccfb4f9e3368c2f2ae96aa86850cf`.
 
 The hosted preview uses the existing Render backend. It does not prove that Render was migrated to MySQL; MySQL was verified separately by the Docker/CI tests. The site remains protected by the existing Netlify team access settings.
 
-## Pending
+## Hosted MySQL verification — October 4, 2026
 
-- Production publication and any explicit backend/data migration.
+Application commit: `b4870791f1ff8e3ff345963d14c8124872949770`.
 
-The original static Vite hosting configuration must be replaced with a Next.js-compatible server/adapter. Existing SQLite records require an explicit export/import plan if switching to MySQL.
+- Direct API health check: `{"ok":true,"service":"DeskFlow API","database":"mysql"}`.
+- Direct hosted API checks: all four documented demo accounts authenticated successfully and could list tickets. Administrator and agent accounts returned five tickets; the requester returned three. No tickets were created or edited by these checks.
+- Owner-provided Render screenshot: successful redeploy at 16:38:48 America/Sao_Paulo.
+- Owner-reported interface checks: the test ticket remained after that redeploy; a comment remained after refresh; assignee and status remained after refresh; resolving the ticket updated the dashboard totals.
+- Unauthenticated request to the Netlify frontend returned HTTP 401. Team protection still applies; the hosted demo is not publicly accessible through that URL.
+
+These checks validate the observed workflow, not a complete security audit or backup restore. The comment was verified after refresh, not separately after a subsequent redeploy. Earlier SQLite records are not automatically imported into MySQL, and the old preview ticket URL is historical evidence rather than a guaranteed current record.
+
+## Remaining work before customer use
+
+- Provision individual accounts and retire public demo credentials.
+- Test a database backup and restore.
+- Review permissions and authentication under the intended deployment conditions.
+- Make an explicit decision about public demo access; use fictional data only.
