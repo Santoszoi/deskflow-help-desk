@@ -31,6 +31,21 @@ test('browser: login, dashboard, ticket form, comments, deep routes and mobile',
   await page.screenshot({path:'test-results/ticket.png',fullPage:true});
   await page.setViewportSize({width:390,height:844});await page.screenshot({path:'test-results/mobile.png',fullPage:true});
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>window.innerWidth+1),false,'Horizontal overflow on mobile');
+  await page.setViewportSize({width:1440,height:900});
+  await page.getByRole('button',{name:'Sair',exact:true}).click();
+  await page.getByRole('button',{name:'Entrar como visitante',exact:true}).click();
+  await page.getByRole('heading',{name:'Dashboard',exact:true}).waitFor();
+  await page.getByText('Modo visitante · Somente leitura',{exact:true}).waitFor();
+  assert.equal(await page.getByRole('link',{name:'Novo chamado',exact:true}).count(),0);
+  await page.goto(base+'/new');
+  await page.waitForURL(base+'/tickets');
+  await page.getByRole('link').filter({hasText:'Ajustar formulário de contato'}).click();
+  await page.getByRole('heading',{name:'Ajustar formulário de contato',exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'Adicionar comentário',exact:true}).count(),0);
+  assert.equal(await page.getByLabel('Status',{exact:true}).count(),0);
+  await page.reload();
+  await page.getByRole('heading',{name:'Ajustar formulário de contato',exact:true}).waitFor();
+  await page.screenshot({path:'test-results/visitor.png',fullPage:true});
   assert.deepEqual(errors,[],'Browser runtime errors');
  } catch(error){await page.screenshot({path:'test-results/failure.png',fullPage:true});throw error}
  finally{await browser.close()}

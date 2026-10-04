@@ -77,6 +77,14 @@ Changing password environment variables after initial MySQL initialization does 
 
 ## Demo users
 
+### Read-only visitor
+
+Choose **Entrar como visitante** on the login screen to explore an isolated fictional dashboard, tickets, comments and history. This session lasts one hour. The API blocks visitor writes and serves fixed sample data without reading operational tickets. The visitor cannot create tickets, assign agents, change status or add comments, including through direct API requests. Refresh preserves the visitor session until it expires; sign out and enter again to renew it.
+
+Visitor sessions are available only when `DEMO_SEED=true`; disabling it also blocks existing visitor tokens. No database account or schema migration is needed. Netlify team protection remains enabled and is separate from this application role. No public access setting is changed by this feature.
+
+### Staff demonstration accounts
+
 When `DEMO_SEED=true`, an empty database receives public demonstration accounts with password `123456`:
 
 | Role | Email |

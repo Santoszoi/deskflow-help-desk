@@ -44,6 +44,8 @@ These checks validate the observed workflow, not a complete security audit or ba
 
 ## Remaining work before customer use
 
+Read-only visitor implementation checks (October 4, 2026): TypeScript checks and isolated API tests passed. Tests cover fixed demonstration reads, filters, denial of operational ticket access, denied creation/update/comment requests, unchanged operational records, and revocation when demo mode is disabled. Browser coverage is included in `tests/browser.test.mjs`; a passing hosted browser check must be recorded separately.
+
 - Provision individual accounts and retire public demo credentials.
 - Test a database backup and restore.
 - Review permissions and authentication under the intended deployment conditions.

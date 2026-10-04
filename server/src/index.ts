@@ -3,6 +3,7 @@ import cors from 'cors';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { connectDatabase } from './lib/db.js';
+import { visitorResponse } from './lib/visitor.js';
 
 const app = express();
 const PORT = Number(process.env.PORT || 3333);
@@ -10,7 +11,7 @@ if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 const db = await connectDatabase();
 
-type Role = 'ADMIN' | 'AGENT' | 'USER';
+type Role = 'ADMIN' | 'AGENT' | 'USER' | 'VISITOR';
 type AuthUser = { id: number; name: string; email: string; role: Role };
 interface AuthedRequest extends Request { user?: AuthUser }
 
@@ -56,7 +57,12 @@ function auth(req: AuthedRequest, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header?.startsWith('Bearer ')) return res.status(401).json({ message: 'Não autenticado.' });
   try {
-    req.user = jwt.verify(header.slice(7), JWT_SECRET) as AuthUser;
+    req.user = jwt.verify(header.slice(7), JWT_SECRET, { algorithms: ['HS256'] }) as AuthUser;
+    if (!['ADMIN', 'AGENT', 'USER', 'VISITOR'].includes(req.user.role)) return res.status(401).json({ message: 'Sessão inválida.' });
+    if (req.user.role === 'VISITOR') {
+      if (process.env.DEMO_SEED !== 'true') return res.status(403).json({ message: 'Demonstração desativada.' });
+      return visitorResponse(req, res);
+    }
     next();
   } catch {
     return res.status(401).json({ message: 'Sessão inválida ou expirada.' });
@@ -70,6 +76,14 @@ function canSeeTicket(user: AuthUser, requesterId: number) {
 }
 
 app.get('/api/health', async (_req, res) => {await db.prepare('SELECT 1').get();res.json({ok:true,service:'DeskFlow API',database:db.engine})});
+
+app.post('/api/auth/visitor', (_req, res) => {
+  if (process.env.DEMO_SEED !== 'true') return res.status(403).json({ message: 'Demonstração desativada.' });
+  const user: AuthUser = { id: 0, name: 'Visitante', email: '', role: 'VISITOR' };
+  const token = jwt.sign(user, JWT_SECRET, { algorithm: 'HS256', expiresIn: '1h' });
+  res.setHeader('Cache-Control', 'no-store');
+  res.json({ token, user });
+});
 
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body as { email?: string; password?: string };
