@@ -40,8 +40,17 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 --silent"]
-      interval: 10s
+      # Authenticate as the application user and select its database over TCP.
+      # $$ defers variable expansion to the container, not the Compose host.
+      test:
+        - CMD-SHELL
+        - >-
+          MYSQL_PWD="$${MYSQL_PASSWORD}" mysql --protocol=TCP
+          --host=127.0.0.1 --connect-timeout=3
+          --user="$${MYSQL_USER}" --database="$${MYSQL_DATABASE}"
+          --batch --skip-column-names --execute='SELECT 1' >/dev/null 2>&1
+      start_period: 30s
+      interval: 5s
       timeout: 5s
       retries: 20
     restart: unless-stopped
