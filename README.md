@@ -1,41 +1,37 @@
 # DeskFlow
 
-Responsive help desk and ticket management portfolio application built with **Next.js, React, TypeScript, Express and SQL databases**.
+**Turn scattered support requests into a tracked workflow.** DeskFlow helps a support team prioritize tickets, assign ownership and keep updates in one place.
 
-[Source](https://github.com/Santoszoi/deskflow-help-desk) · [Marcos Solutions portfolio](https://marcossolutions.com.br)
+Next.js · React · TypeScript · Express · MySQL / SQLite · Docker
 
-## Hosted demonstration
+![DeskFlow dashboard with ticket totals, priorities and recent activity](docs/media/dashboard.png)
 
-[Open DeskFlow](https://deskflow-help-desk-app.netlify.app) (Netlify team access currently required).
+**[Watch the short product walkthrough](docs/media/deskflow-demo.mp4)** — dashboard, ticket list, conversation and mobile layout.
 
-The hosted application uses Next.js on Netlify, Express on Render and persistent MySQL on Aiven with verified TLS. On October 4, 2026, the API health check returned `database: mysql`. The project owner confirmed ticket persistence after a Render redeploy, comments and assignment/status persistence after refresh, and dashboard updates after resolution. See [validation results](docs/VALIDATION.md) for scope and limitations.
-
-For a presentation, sign in, open a sample ticket, assign an agent, add a comment, resolve it and show the dashboard. Use fictional data only. The portfolio currently includes a separate illustrative dashboard; it is not the hosted application.
+Real captures of the application running locally with isolated fictional visitor data. The interface is in Brazilian Portuguese. No customer records or credentials are shown.
 
 ## Features
 
-- Administrator, agent and requester roles with JWT authentication.
-- Ticket creation, asset identification, category and priority.
-- Search, status and priority filters.
-- Assignment, status updates, comments and history.
-- Dashboard totals, status/priority summaries and recent updates.
-- Responsive interface in Brazilian Portuguese.
-- SQLite for local development and existing databases; real MySQL queries with `mysql2` for Docker and hosted deployment.
+- Create tickets with an asset, category and priority.
+- Search and filter the queue; assign an agent and update status.
+- Keep comments and a chronological history on each ticket.
+- Review workload through dashboard totals and recent updates.
+- Explore a separate read-only visitor demonstration.
 
-## Architecture
+![Ticket detail with conversation and activity history](docs/media/ticket.png)
 
-The Next.js App Router serves the React interface. Next.js navigation replaces the former React Router setup. Browser requests use same-origin `/api`; a Next.js rewrite forwards them to the Express API. The API uses parameterized SQL with either SQLite or MySQL. Docker Compose starts three services: the Next.js app, Express API and MySQL 8.4.
+<details>
+<summary>More real screenshots: ticket queue and mobile view</summary>
 
-The frontend was migrated from Vite. Installing a dependency alone is not the integration: the repository includes App Router pages, a root layout, Next.js scripts and a tested production build.
+![Ticket queue](docs/media/tickets.png)
 
-## Requirements
+<img src="docs/media/mobile.png" alt="DeskFlow ticket details on a mobile viewport" width="390">
 
-- Node.js 24 LTS and npm for local development.
-- Docker with Docker Compose v2 for the container setup.
+</details>
 
-## Local setup (SQLite)
+## Try it locally
 
-The Next.js migration is merged into `main` ([PR #1](https://github.com/Santoszoi/deskflow-help-desk/pull/1)).
+Requires Node.js 24 and npm.
 
 ```bash
 git clone https://github.com/Santoszoi/deskflow-help-desk.git
@@ -45,100 +41,34 @@ npm run setup
 npm run dev
 ```
 
-Open **http://localhost:3000**. The API listens on port 3333. `npm run setup` creates ignored `.env` files with random secrets and enables local demonstration data. Existing files are preserved. Server scripts load `server/.env` automatically.
+Open **http://localhost:3000** and choose **Entrar como visitante**. No password is needed for this isolated read-only mode. For the editable workflow, use the local [demonstration accounts](docs/SETUP.md#staff-demonstration-accounts).
 
-### Production build on your machine
+The [hosted application](https://deskflow-help-desk-app.netlify.app) requires Netlify team access. Review the video and source without requesting access, or contact me for a guided demonstration.
 
-```bash
-npm run build
-npm start
-```
+## Engineering decisions
 
-The frontend start script copies static assets to the Next.js standalone output before starting it. The API is started alongside the frontend.
-
-## Docker with MySQL
-
-```bash
-npm run setup
-docker compose up --build -d
-```
-
-Open **http://localhost:3000**. The web port is bound to localhost. The database and API have no host ports; the application reaches them through the internal Compose network. The database uses a named volume. Health checks control startup ordering.
-
-```bash
-docker compose ps
-docker compose logs -f
-docker compose down
-```
-
-`docker compose down` retains the MySQL volume. **Do not use `down -v` if you need its data.** Existing SQLite records are not automatically copied to MySQL. Back up `server/data/helpdesk.db` before switching databases; the MySQL environment starts with its own data.
-
-Changing password environment variables after initial MySQL initialization does not change credentials in an existing database volume. Rotate database credentials explicitly rather than deleting a populated volume.
-
-## Demo users
-
-### Read-only visitor
-
-Choose **Entrar como visitante** on the login screen to explore an isolated fictional dashboard, tickets, comments and history. This session lasts one hour. The API blocks visitor writes and serves fixed sample data without reading operational tickets. The visitor cannot create tickets, assign agents, change status or add comments, including through direct API requests. Refresh preserves the visitor session until it expires; sign out and enter again to renew it.
-
-Visitor sessions are available only when `DEMO_SEED=true`; disabling it also blocks existing visitor tokens. No database account or schema migration is needed. Netlify team protection remains enabled and is separate from this application role. No public access setting is changed by this feature.
-
-### Staff demonstration accounts
-
-When `DEMO_SEED=true`, an empty database receives public demonstration accounts with password `123456`:
-
-| Role | Email |
+| Decision | Reason and trade-off |
 | --- | --- |
-| Administrator | `admin@deskflow.local` |
-| Agent | `ana@deskflow.local` |
-| Agent | `Marcos@deskflow.local` |
-| Requester | `usuario@deskflow.local` |
+| Separate Next.js UI and Express API | Separate the interface from authorization and database logic; deploy independently. This adds routing and two services to operate. |
+| MySQL for hosting; SQLite locally | Hosted records survive API deployments; SQLite simplifies local setup. Both execute real parameterized queries and require separate validation. |
+| Server-side authorization | The API checks JWTs, requester ownership and staff permissions. Hidden interface controls are only a usability measure. |
+| Isolated visitor fixtures | Review the interface without reading operational tickets or allowing writes. This mode does not demonstrate database persistence. |
 
-These credentials are for portfolio demonstrations. For real customer data, disable demo seeding, provision individual users, configure HTTPS and review authentication, permissions, backups and recovery. This migration does not claim production readiness or a completed accessibility audit.
+Read the [architecture and permission model](docs/ARCHITECTURE.md) for code references and limitations.
 
-Disabling `DEMO_SEED` does not remove existing demo accounts or change their passwords. Demo credentials do not grant access through Netlify's separate team protection.
+## Verification and documentation
 
-## Configuration
+The repository includes API, browser, MySQL persistence and TLS tests. See [GitHub Actions](https://github.com/Santoszoi/deskflow-help-desk/actions) for the latest results.
 
-| Variable | Purpose |
-| --- | --- |
-| `DB_CLIENT` | `sqlite` (default) or `mysql` |
-| `SQLITE_PATH` | Optional SQLite file path |
-| `DB_HOST`, `DB_PORT` | MySQL host and port |
-| `DB_USER`, `DB_PASSWORD`, `DB_NAME` | MySQL credentials and database |
-| `DB_SSL` | `true` enables TLS with certificate verification for hosted MySQL |
-| `DB_SSL_CA` or `DB_SSL_CA_PATH` | Provider CA as a full PEM value or file path; use only one |
-| `JWT_SECRET` | Required, at least 32 characters in production |
-| `DEMO_SEED` | Enable public sample accounts explicitly |
-| `CORS_ORIGIN` | Optional comma-separated direct API browser origins |
-| `API_INTERNAL_URL` | Next.js API rewrite target; set when building the frontend |
+- [Setup, Docker, environment variables and demo accounts](docs/SETUP.md)
+- [Architecture, data flow and authorization](docs/ARCHITECTURE.md)
+- [Deployment and migration notes](docs/DEPLOYMENT.md)
+- [Validation scope and limitations](docs/VALIDATION.md)
 
-Compose sets `DB_CLIENT=mysql`. To run the API against your own MySQL server without Docker, set the MySQL variables in `server/.env` and create the database/user first. The API creates its four tables and executes actual database queries; it never returns simulated query success.
-
-## Tests
-
-```bash
-npm run typecheck
-npm run build
-npm test
-node --test tests/mysql-tls.test.mjs
-npm run test:web
-```
-
-The web integration test checks deep routes, standalone startup and the same-origin API login proxy.
-
-With the Compose services running, `npm run test:compose` verifies real MySQL operations and persistence after restarting the API. After `npx playwright install chromium`, `npm run test:browser` checks the interface workflow and mobile layout. GitHub Actions runs these checks on this branch and uploads browser screenshots. See [validation results](docs/VALIDATION.md) and [deployment instructions](docs/DEPLOYMENT.md).
-
-The API integration test starts an isolated SQLite database, checks login, ticket creation, assignment, comments, dashboard, filters, role restrictions and persistence after restart.
-
-To exercise the same workflow with a disposable MySQL database, set `TEST_DB_CLIENT=mysql`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` and `DB_NAME` before `npm test`. **Use a dedicated test database:** the test adds sample users and tickets.
-
-## Deployment changes
-
-This version uses a Next.js hosting adapter on Netlify and a separate Express API on Render. The old Vite `client/dist` static deployment instructions no longer apply. MySQL data is hosted separately on Aiven. See [deployment instructions](docs/DEPLOYMENT.md) for configuration and recovery checks.
+This is a portfolio application. Public demo accounts are unsuitable for real customer data. A complete production-security or accessibility audit is not claimed.
 
 ## Author
 
-**Marcos Neves** · Brasília, DF, Brazil
+**Marcos Neves** · Brasília, Brazil
 
 [Portfolio](https://marcossolutions.com.br) · [LinkedIn](https://www.linkedin.com/in/marcos--neves) · [Email](mailto:marcosrony.neves@gmail.com)
