@@ -64,12 +64,14 @@ function Login(){
 function Layout(){
  const {user,logout}=useAuth(); const loc=useLocation(); const [mobile,setMobile]=useState(false);
  if(!user) return <Navigate href="/login" replace/>;
- const links=[['/',BarChart3,'Dashboard'],['/tickets',ClipboardList,'Chamados'],...(user.role === 'VISITOR' ? [] : [['/new',Plus,'Novo chamado']])];
- return <div className="app-shell"><aside className={mobile?'sidebar open':'sidebar'}><div className="brand"><Ticket size={24}/> DeskFlow<button className="icon mobile-close" onClick={()=>setMobile(false)}><X/></button></div><nav>{links.map(([href,Icon,label]:any)=><Link key={href} href={href} onClick={()=>setMobile(false)} className={(href==='/'?loc.pathname===href:loc.pathname.startsWith(href))?'active':''}><Icon size={19}/>{label}</Link>)}</nav><div className="sidebar-bottom"><div className="user-mini"><div className="avatar">{user.name[0]}</div><div><b>{user.name}</b><span>{user.role}</span></div></div><button className="logout" onClick={logout}><LogOut size={17}/> Sair</button></div></aside><main><header><button className="icon menu" onClick={()=>setMobile(true)}><Menu/></button><div><span className="eyebrow">Central de Serviços de TI</span><b>DeskFlow</b></div><div className="header-user"><span>{user.name}</span><div className="avatar small">{user.name[0]}</div></div></header><div className="content">{user.role === 'VISITOR' && <div className="demo-box" role="status"><b>Modo visitante · Somente leitura</b><span>Dados fictícios. Os chamados reais não aparecem nesta demonstração.</span></div>}{loc.pathname === '/' ? <Dashboard/> : loc.pathname === '/tickets' ? <Tickets/> : loc.pathname === '/new' ? (user.role === 'VISITOR' ? <Navigate href="/tickets" replace/> : <NewTicket/>) : /^\/tickets\/\d+$/.test(loc.pathname) ? <TicketDetail key={loc.pathname}/> : <Navigate href="/"/>}</div></main></div>
+ const currentUser = user;
+ const links=[['/',BarChart3,'Dashboard'],['/tickets',ClipboardList,'Chamados'],...(currentUser.role === 'VISITOR' ? [] : [['/new',Plus,'Novo chamado']])];
+ return <div className="app-shell"><aside className={mobile?'sidebar open':'sidebar'}><div className="brand"><Ticket size={24}/> DeskFlow<button className="icon mobile-close" onClick={()=>setMobile(false)}><X/></button></div><nav>{links.map(([href,Icon,label]:any)=><Link key={href} href={href} onClick={()=>setMobile(false)} className={(href==='/'?loc.pathname===href:loc.pathname.startsWith(href))?'active':''}><Icon size={19}/>{label}</Link>)}</nav><div className="sidebar-bottom"><div className="user-mini"><div className="avatar">{currentUser.name[0]}</div><div><b>{currentUser.name}</b><span>{currentUser.role}</span></div></div><button className="logout" onClick={logout}><LogOut size={17}/> Sair</button></div></aside><main><header><button className="icon menu" onClick={()=>setMobile(true)}><Menu/></button><div><span className="eyebrow">Central de Serviços de TI</span><b>DeskFlow</b></div><div className="header-user"><span>{currentUser.name}</span><div className="avatar small">{currentUser.name[0]}</div></div></header><div className="content">{currentUser.role === 'VISITOR' && <div className="demo-box" role="status"><b>Modo visitante · Somente leitura</b><span>Dados fictícios. Os chamados reais não aparecem nesta demonstração.</span></div>}{loc.pathname === '/' ? <Dashboard/> : loc.pathname === '/tickets' ? <Tickets/> : loc.pathname === '/new' ? (currentUser.role === 'VISITOR' ? <Navigate href="/tickets" replace/> : <NewTicket/>) : /^\/tickets\/\d+$/.test(loc.pathname) ? <TicketDetail key={loc.pathname}/> : <Navigate href="/"/>}</div></main></div>
 }
 
 function Dashboard(){
  const {user}=useAuth();
+ if(!user) return <Navigate href="/login" replace/>;
  const [data,setData]=useState<any>(null); const [error,setError]=useState('');
  useEffect(()=>{api('/dashboard').then(setData).catch(e=>setError(e.message))},[]);
  if(error)return <Empty text={error}/>; if(!data)return <Loading/>;
@@ -79,6 +81,7 @@ function Dashboard(){
 
 function Tickets(){
  const {user}=useAuth();
+ if(!user) return <Navigate href="/login" replace/>;
  const [tickets,setTickets]=useState<TicketItem[]>([]); const [search,setSearch]=useState(''); const [status,setStatus]=useState(''); const [priority,setPriority]=useState(''); const [loading,setLoading]=useState(true); const [error,setError]=useState('');
  const load=()=>{setLoading(true);setError('');api<TicketItem[]>(`/tickets?search=${encodeURIComponent(search)}&status=${status}&priority=${priority}`).then(setTickets).catch(e=>{setTickets([]);setError(e instanceof Error?e.message:'Não foi possível carregar os chamados.')}).finally(()=>setLoading(false))};
  useEffect(()=>{const t=setTimeout(load,250);return()=>clearTimeout(t)},[search,status,priority]);
@@ -104,7 +107,8 @@ function NewTicket(){
 }
 
 function TicketDetail(){
- const {id}=useParams(); const {user}=useAuth(); const [ticket,setTicket]=useState<any>(null); const [agents,setAgents]=useState<any[]>([]); const [comment,setComment]=useState(''); const [error,setError]=useState('');
+ const {id}=useParams(); const {user}=useAuth();
+ if(!user) return <Navigate href="/login" replace/>; const [ticket,setTicket]=useState<any>(null); const [agents,setAgents]=useState<any[]>([]); const [comment,setComment]=useState(''); const [error,setError]=useState('');
  const load=()=>api<any>(`/tickets/${id}`).then(setTicket).catch(e=>setError(e.message));
  useEffect(()=>{load(); if((user.role==='ADMIN'||user.role==='AGENT'))api<any[]>('/users/agents').then(setAgents)},[id]);
  async function update(field:string,value:any){setError('');try{await api(`/tickets/${id}`,{method:'PATCH',body:JSON.stringify({[field]:value})});await load()}catch(e){setError(e instanceof Error?e.message:'Não foi possível atualizar o chamado.')}}
