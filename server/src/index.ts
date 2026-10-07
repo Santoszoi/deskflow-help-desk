@@ -16,7 +16,7 @@ type AuthUser = { id: number; name: string; email: string; role: Role };
 interface AuthedRequest extends Request { user?: AuthUser }
 
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : false }));
-app.use(express.json());
+app.use(express.json({ limit: '64kb' }));
 
 async function initDb() {
   if (process.env.DEMO_SEED !== 'true') return;
@@ -120,7 +120,9 @@ app.get('/api/tickets', auth, async (req: AuthedRequest, res) => {
 
 app.post('/api/tickets', auth, async (req: AuthedRequest, res) => {
   const { title, description, asset, category, priority = 'MEDIA' } = req.body as any;
-  if (!title?.trim() || !description?.trim() || !category?.trim()) return res.status(400).json({ message: 'Título, descrição e categoria são obrigatórios.' });
+  if (typeof title !== 'string' || typeof description !== 'string' || typeof category !== 'string') return res.status(400).json({ message: 'Título, descrição e categoria são obrigatórios.' });
+  if (!title.trim() || !description.trim() || !category.trim()) return res.status(400).json({ message: 'Título, descrição e categoria são obrigatórios.' });
+  if (title.trim().length > 160 || description.trim().length > 5000 || category.trim().length > 80 || (asset != null && (typeof asset !== 'string' || asset.trim().length > 120))) return res.status(400).json({ message: 'Um ou mais campos excedem o tamanho permitido.' });
   const allowed = ['BAIXA','MEDIA','ALTA','CRITICA'];
   if (!allowed.includes(priority)) return res.status(400).json({ message: 'Prioridade inválida.' });
   const result = await db
@@ -188,8 +190,10 @@ app.post('/api/tickets/:id/comments', auth, async (req: AuthedRequest, res) => {
   const ticket = await db.prepare('SELECT * FROM tickets WHERE id=?').get(String(req.params.id)) as any;
   if (!ticket) return res.status(404).json({ message: 'Chamado não encontrado.' });
   if (!canSeeTicket(req.user!, ticket.requester_id)) return res.status(403).json({ message: 'Sem permissão.' });
-  const message = String(req.body.message || '').trim();
+  if (typeof req.body.message !== 'string') return res.status(400).json({ message: 'Comentário não pode ser vazio.' });
+  const message = req.body.message.trim();
   if (!message) return res.status(400).json({ message: 'Comentário não pode ser vazio.' });
+  if (message.length > 5000) return res.status(400).json({ message: 'Comentário excede o tamanho permitido.' });
   await db.prepare('INSERT INTO ticket_comments (ticket_id, user_id, message) VALUES (?, ?, ?)').run(String(req.params.id), req.user!.id, message);
   await db.prepare('INSERT INTO ticket_history (ticket_id, user_id, action, details) VALUES (?, ?, ?, ?)').run(String(req.params.id), req.user!.id, 'COMENTARIO_ADICIONADO', 'Nova interação adicionada');
   await db.prepare('UPDATE tickets SET updated_at=CURRENT_TIMESTAMP WHERE id=?').run(String(req.params.id));

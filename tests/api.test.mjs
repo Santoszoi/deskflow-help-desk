@@ -28,6 +28,8 @@ test('real database: authentication, ticket workflow, roles and persistence',asy
   const login=await request('/auth/login',{method:'POST',body:{email:'admin@deskflow.local',password:'123456'}});assert.equal(login.status,200);
   const token=login.data.token;
   const userLogin=await request('/auth/login',{method:'POST',body:{email:'usuario@deskflow.local',password:'123456'}});const user=userLogin.data.token;
+  assert.equal((await request('/tickets',{token:user,method:'POST',body:{title:123,description:'Invalid title type',category:'Software'}})).status,400);
+  assert.equal((await request('/tickets',{token:user,method:'POST',body:{title:'x'.repeat(161),description:'Too long title',category:'Software'}})).status,400);
   const created=await request('/tickets',{token:user,method:'POST',body:{title:'Integration test '+Date.now(),description:'Persistent real database ticket',asset:'PC-TEST',category:'Software',priority:'ALTA'}});
   assert.equal(created.status,201);const id=created.data.id;
   const other=await request('/tickets',{token,method:'POST',body:{title:'Private admin ticket',description:'User must not see it',category:'Software'}});
@@ -52,6 +54,8 @@ test('real database: authentication, ticket workflow, roles and persistence',asy
   assert.equal((await request(`/tickets/${id}`,{token:user,method:'PATCH',body:{status:'FECHADO'}})).status,403);
   const agents=await request('/users/agents',{token});assert.equal(agents.status,200);
   assert.equal((await request(`/tickets/${id}`,{token,method:'PATCH',body:{status:'EM_ATENDIMENTO',assignee_id:agents.data[0].id}})).status,200);
+  assert.equal((await request(`/tickets/${id}/comments`,{token:user,method:'POST',body:{message:42}})).status,400);
+  assert.equal((await request(`/tickets/${id}/comments`,{token:user,method:'POST',body:{message:'x'.repeat(5001)}})).status,400);
   assert.equal((await request(`/tickets/${id}/comments`,{token:user,method:'POST',body:{message:'Teste de persistência'}})).status,201);
   const detail=await request(`/tickets/${id}`,{token});assert.equal(detail.data.asset,'PC-TEST');assert.equal(detail.data.status,'EM_ATENDIMENTO');assert.equal(detail.data.comments.length,1);assert.ok(detail.data.history.length>=4);
   const filtered=await request(`/tickets?search=${id}&priority=ALTA`,{token});assert.ok(filtered.data.some(t=>t.id===id));
