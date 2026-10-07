@@ -25,6 +25,8 @@ test('real database: authentication, ticket workflow, roles and persistence',asy
   start();await ready();
   assert.equal((await request('/tickets')).status,401);
   assert.equal((await request('/auth/login',{method:'POST',body:{email:'admin@deskflow.local',password:'wrong'}})).status,401);
+  assert.equal((await request('/auth/login',{method:'POST',body:{email:42,password:'123456'}})).status,400);
+  assert.equal((await request('/auth/login',{method:'POST',body:{email:'x'.repeat(255),password:'123456'}})).status,400);
   const login=await request('/auth/login',{method:'POST',body:{email:'admin@deskflow.local',password:'123456'}});assert.equal(login.status,200);
   const token=login.data.token;
   const userLogin=await request('/auth/login',{method:'POST',body:{email:'usuario@deskflow.local',password:'123456'}});const user=userLogin.data.token;
@@ -53,6 +55,9 @@ test('real database: authentication, ticket workflow, roles and persistence',asy
   assert.equal((await request(`/tickets/${other.data.id}`,{token:user})).status,403);
   assert.equal((await request(`/tickets/${id}`,{token:user,method:'PATCH',body:{status:'FECHADO'}})).status,403);
   const agents=await request('/users/agents',{token});assert.equal(agents.status,200);
+  assert.equal((await request(`/tickets/${id}`,{token,method:'PATCH',body:{status:'INVALIDO'}})).status,400);
+  assert.equal((await request(`/tickets/${id}`,{token,method:'PATCH',body:{priority:'URGENTE'}})).status,400);
+  assert.equal((await request(`/tickets/${id}`,{token,method:'PATCH',body:{assignee_id:'abc'}})).status,400);
   assert.equal((await request(`/tickets/${id}`,{token,method:'PATCH',body:{status:'EM_ATENDIMENTO',assignee_id:agents.data[0].id}})).status,200);
   assert.equal((await request(`/tickets/${id}/comments`,{token:user,method:'POST',body:{message:42}})).status,400);
   assert.equal((await request(`/tickets/${id}/comments`,{token:user,method:'POST',body:{message:'x'.repeat(5001)}})).status,400);
