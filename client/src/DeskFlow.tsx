@@ -27,7 +27,13 @@ async function api<T>(path:string, options:RequestInit = {}): Promise<T> {
   return data;
 }
 
-const AuthContext = createContext<any>(null);
+type AuthContextValue = {
+  user: User | null;
+  login: (email:string,password:string)=>Promise<void>;
+  visit: ()=>Promise<void>;
+  logout: ()=>void;
+};
+const AuthContext = createContext<AuthContextValue | null>(null);
 function AuthProvider({children}:{children:React.ReactNode}) {
   const [user,setUser] = useState<User|null>(()=>{ try { return JSON.parse(localStorage.getItem('user') || 'null'); } catch { return null; } });
   const login = async(email:string,password:string)=>{ const data = await api<{token:string;user:User}>('/auth/login',{method:'POST',body:JSON.stringify({email,password})}); localStorage.setItem('token',data.token); localStorage.setItem('user',JSON.stringify(data.user)); setUser(data.user); };
@@ -35,14 +41,8 @@ function AuthProvider({children}:{children:React.ReactNode}) {
   const logout=()=>{ localStorage.removeItem('token'); localStorage.removeItem('user'); setUser(null); };
   return <AuthContext.Provider value={{user,login,visit,logout}}>{children}</AuthContext.Provider>;
 }
-type AuthContextValue = {
-  user: User | null;
-  login: (email:string,password:string)=>Promise<void>;
-  visit: ()=>Promise<void>;
-  logout: ()=>void;
-};
 function useAuth(){
-  const context = useContext(AuthContext) as AuthContextValue | null;
+  const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 }
@@ -108,13 +108,14 @@ function NewTicket(){
 
 function TicketDetail(){
  const {id}=useParams(); const {user}=useAuth();
- if(!user) return <Navigate href="/login" replace/>; const [ticket,setTicket]=useState<any>(null); const [agents,setAgents]=useState<any[]>([]); const [comment,setComment]=useState(''); const [error,setError]=useState('');
- const load=()=>api<any>(`/tickets/${id}`).then(setTicket).catch(e=>setError(e.message));
+ const [ticket,setTicket]=useState<any>(null); const [agents,setAgents]=useState<any[]>([]); const [comment,setComment]=useState(''); const [loadError,setLoadError]=useState(''); const [actionError,setActionError]=useState('');
+ const load=()=>{setLoadError('');return api<any>(`/tickets/${id}`).then(setTicket).catch(e=>{setTicket(null);setLoadError(e instanceof Error?e.message:'Não foi possível carregar o chamado.')})};
+ if(!user) return <Navigate href="/login" replace/>;
  useEffect(()=>{load(); if((user.role==='ADMIN'||user.role==='AGENT'))api<any[]>('/users/agents').then(setAgents)},[id]);
- async function update(field:string,value:any){setError('');try{await api(`/tickets/${id}`,{method:'PATCH',body:JSON.stringify({[field]:value})});await load()}catch(e){setError(e instanceof Error?e.message:'Não foi possível atualizar o chamado.')}}
- async function addComment(e:React.FormEvent){e.preventDefault();if(!comment.trim())return;setError('');try{await api(`/tickets/${id}/comments`,{method:'POST',body:JSON.stringify({message:comment})});setComment('');await load()}catch(e){setError(e instanceof Error?e.message:'Não foi possível adicionar o comentário.')}}
- if(error)return <Empty text={error}/>; if(!ticket)return <Loading/>;
- return <><div className="detail-head"><div><Link href="/tickets" className="back">← Voltar para chamados</Link><div className="title-line"><span>#{ticket.id}</span><h1>{ticket.title}</h1></div><div className="badges"><Badge type="priority" value={ticket.priority}/><Badge type="status" value={ticket.status}/><span className="category">{ticket.category}</span></div></div></div><div className="detail-grid"><div className="detail-main"><section className="panel"><h3>Descrição</h3><p className="description">{ticket.description}</p><div className="meta-grid"><div><span>Solicitante</span><b>{ticket.requester_name}</b><small>{ticket.requester_email}</small></div><div><span>Responsável</span><b>{ticket.assignee_name||'Não atribuído'}</b></div><div><span>Criado em</span><b>{fmt(ticket.created_at)}</b></div><div><span>Última atualização</span><b>{fmt(ticket.updated_at)}</b></div></div></section><section className="panel"><div className="panel-title"><h3>Interações</h3><MessageSquare size={19}/></div><div className="comments">{ticket.comments.length?ticket.comments.map((c:any)=><div className="comment" key={c.id}><div className="avatar small">{c.user_name[0]}</div><div><div><b>{c.user_name}</b><span>{fmt(c.created_at)}</span></div><p>{c.message}</p></div></div>):<p className="muted">Ainda não há comentários neste chamado.</p>}</div>{user.role !== 'VISITOR' && <form className="comment-form" onSubmit={addComment}><textarea value={comment} onChange={e=>setComment(e.target.value)} rows={3} placeholder="Adicione uma atualização, teste realizado ou orientação..."/><button className="primary">Adicionar comentário</button></form>}</section></div><aside className="detail-side">{(user.role==='ADMIN'||user.role==='AGENT')&&<section className="panel controls"><h3>Atendimento</h3><label>Status<select aria-label="Status" value={ticket.status} onChange={e=>update('status',e.target.value)}>{Object.entries(statusLabel).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label>Prioridade<select aria-label="Prioridade" value={ticket.priority} onChange={e=>update('priority',e.target.value)}>{Object.entries(priorityLabel).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label>Responsável<select aria-label="Responsável" value={ticket.assignee_id||''} onChange={e=>update('assignee_id',e.target.value?Number(e.target.value):null)}><option value="">Não atribuído</option>{agents.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label></section>}<section className="panel timeline"><h3>Histórico</h3>{ticket.history.map((h:any)=><div className="history" key={h.id}><i/><div><b>{h.action.replaceAll('_',' ')}</b><p>{h.details}</p><span>{h.user_name} · {fmt(h.created_at)}</span></div></div>)}</section></aside></div></>
+ async function update(field:string,value:any){setActionError('');try{await api(`/tickets/${id}`,{method:'PATCH',body:JSON.stringify({[field]:value})});await load()}catch(e){setActionError(e instanceof Error?e.message:'Não foi possível atualizar o chamado.')}}
+ async function addComment(e:React.FormEvent){e.preventDefault();if(!comment.trim())return;setActionError('');try{await api(`/tickets/${id}/comments`,{method:'POST',body:JSON.stringify({message:comment})});setComment('');await load()}catch(e){setActionError(e instanceof Error?e.message:'Não foi possível adicionar o comentário.')}}
+ if(loadError)return <Empty text={loadError}/>; if(!ticket)return <Loading/>;
+ return <><div className="detail-head"><div><Link href="/tickets" className="back">← Voltar para chamados</Link><div className="title-line"><span>#{ticket.id}</span><h1>{ticket.title}</h1></div><div className="badges"><Badge type="priority" value={ticket.priority}/><Badge type="status" value={ticket.status}/><span className="category">{ticket.category}</span></div></div></div>{actionError&&<div className="error" role="alert">{actionError}</div>}<div className="detail-grid"><div className="detail-main"><section className="panel"><h3>Descrição</h3><p className="description">{ticket.description}</p><div className="meta-grid"><div><span>Solicitante</span><b>{ticket.requester_name}</b><small>{ticket.requester_email}</small></div><div><span>Responsável</span><b>{ticket.assignee_name||'Não atribuído'}</b></div><div><span>Criado em</span><b>{fmt(ticket.created_at)}</b></div><div><span>Última atualização</span><b>{fmt(ticket.updated_at)}</b></div></div></section><section className="panel"><div className="panel-title"><h3>Interações</h3><MessageSquare size={19}/></div><div className="comments">{ticket.comments.length?ticket.comments.map((c:any)=><div className="comment" key={c.id}><div className="avatar small">{c.user_name[0]}</div><div><div><b>{c.user_name}</b><span>{fmt(c.created_at)}</span></div><p>{c.message}</p></div></div>):<p className="muted">Ainda não há comentários neste chamado.</p>}</div>{user.role !== 'VISITOR' && <form className="comment-form" onSubmit={addComment}><textarea value={comment} onChange={e=>setComment(e.target.value)} rows={3} placeholder="Adicione uma atualização, teste realizado ou orientação..."/><button className="primary">Adicionar comentário</button></form>}</section></div><aside className="detail-side">{(user.role==='ADMIN'||user.role==='AGENT')&&<section className="panel controls"><h3>Atendimento</h3><label>Status<select aria-label="Status" value={ticket.status} onChange={e=>update('status',e.target.value)}>{Object.entries(statusLabel).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label>Prioridade<select aria-label="Prioridade" value={ticket.priority} onChange={e=>update('priority',e.target.value)}>{Object.entries(priorityLabel).map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label><label>Responsável<select aria-label="Responsável" value={ticket.assignee_id||''} onChange={e=>update('assignee_id',e.target.value?Number(e.target.value):null)}><option value="">Não atribuído</option>{agents.map(a=><option key={a.id} value={a.id}>{a.name}</option>)}</select></label></section>}<section className="panel timeline"><h3>Histórico</h3>{ticket.history.map((h:any)=><div className="history" key={h.id}><i/><div><b>{h.action.replaceAll('_',' ')}</b><p>{h.details}</p><span>{h.user_name} · {fmt(h.created_at)}</span></div></div>)}</section></aside></div></>
 }
 
 function PageTitle({title,text,action}:{title:string;text:string;action?:React.ReactNode}){return <div className="page-title"><div><h1>{title}</h1><p>{text}</p></div>{action}</div>}
