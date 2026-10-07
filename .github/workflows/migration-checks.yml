@@ -25,7 +25,10 @@ jobs:
             client/package-lock.json
             server/package-lock.json
       - run: npm ci && npm ci --prefix client && npm ci --prefix server
-      - run: npm run build && npm run typecheck && npm test && npm run test:web
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+      - run: npm run test:web
   docker-mysql-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 25
