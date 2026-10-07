@@ -86,9 +86,10 @@ app.post('/api/auth/visitor', (_req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body as { email?: string; password?: string };
-  if (!email || !password) return res.status(400).json({ message: 'E-mail e senha são obrigatórios.' });
-  const user = await db.prepare('SELECT * FROM users WHERE lower(email) = lower(?)').get(email) as any;
+  const { email, password } = req.body as { email?: unknown; password?: unknown };
+  if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) return res.status(400).json({ message: 'E-mail e senha são obrigatórios.' });
+  if (email.length > 254 || password.length > 256) return res.status(400).json({ message: 'Credenciais excedem o tamanho permitido.' });
+  const user = await db.prepare('SELECT * FROM users WHERE lower(email) = lower(?)').get(email.trim()) as any;
   if (!user || !bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ message: 'Credenciais inválidas.' });
   const safeUser: AuthUser = { id: user.id, name: user.name, email: user.email, role: user.role };
   const token = jwt.sign(safeUser, JWT_SECRET, { expiresIn: '8h' });
@@ -165,9 +166,12 @@ app.patch('/api/tickets/:id', auth, async (req: AuthedRequest, res) => {
   const allowedStatus = ['ABERTO','EM_ATENDIMENTO','AGUARDANDO_USUARIO','RESOLVIDO','FECHADO'];
   const allowedPriority = ['BAIXA','MEDIA','ALTA','CRITICA'];
   const { status, priority, assignee_id } = req.body as any;
+  if (status !== undefined && (typeof status !== 'string' || !allowedStatus.includes(status))) return res.status(400).json({ message: 'Status inválido.' });
+  if (priority !== undefined && (typeof priority !== 'string' || !allowedPriority.includes(priority))) return res.status(400).json({ message: 'Prioridade inválida.' });
+  if (assignee_id !== undefined && assignee_id !== null && (!Number.isInteger(Number(assignee_id)) || Number(assignee_id) <= 0)) return res.status(400).json({ message: 'Responsável inválido.' });
 
-  if (status && allowedStatus.includes(status) && status !== ticket.status) { fields.push('status=?'); values.push(status); changes.push(['STATUS_ALTERADO', `${ticket.status} → ${status}`]); }
-  if (priority && allowedPriority.includes(priority) && priority !== ticket.priority) { fields.push('priority=?'); values.push(priority); changes.push(['PRIORIDADE_ALTERADA', `${ticket.priority} → ${priority}`]); }
+  if (status && status !== ticket.status) { fields.push('status=?'); values.push(status); changes.push(['STATUS_ALTERADO', `${ticket.status} → ${status}`]); }
+  if (priority && priority !== ticket.priority) { fields.push('priority=?'); values.push(priority); changes.push(['PRIORIDADE_ALTERADA', `${ticket.priority} → ${priority}`]); }
   if (assignee_id !== undefined && Number(assignee_id || 0) !== Number(ticket.assignee_id || 0)) {
     let name = 'Não atribuído';
     let normalized: number | null = null;
