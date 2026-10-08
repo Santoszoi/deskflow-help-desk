@@ -10,8 +10,8 @@ const port=Number(process.env.TEST_PORT || 3347);
 const base=`http://127.0.0.1:${port}/api`;
 let logs='';
 let child;
-function start(demo='true'){
- child=spawn(process.execPath,['server/dist/index.js'],{env:{...process.env,PORT:String(port),JWT_SECRET:'test-only-secret-with-more-than-32-characters',DB_CLIENT:process.env.TEST_DB_CLIENT || 'sqlite',SQLITE_PATH:path.join(directory,'test.db'),DEMO_SEED:demo}});
+function start(demo='true', nodeEnv='rate-limit-test'){
+ child=spawn(process.execPath,['server/dist/index.js'],{env:{...process.env,NODE_ENV:nodeEnv,PORT:String(port),JWT_SECRET:'test-only-secret-with-more-than-32-characters',DB_CLIENT:process.env.TEST_DB_CLIENT || 'sqlite',SQLITE_PATH:path.join(directory,'test.db'),DEMO_SEED:demo}});
  child.stdout.on('data',d=>logs+=d);child.stderr.on('data',d=>logs+=d);
 }
 async function ready(){for(let i=0;i<100;i++){try {const r=await fetch(base+'/health');if(r.ok)return}catch{}if(child.exitCode!==null)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}throw new Error('Server did not start: '+logs)}
@@ -78,5 +78,10 @@ test('real database: authentication, ticket workflow, roles and persistence',asy
   }
   const blocked = await request('/auth/login', {method:'POST', body:{email:'missing@example.invalid', password:'incorrect'}});
   assert.equal(blocked.status, 429);
+  await stop();start('false', 'test');await ready();
+  for (let attempt = 0; attempt < 11; attempt++) {
+    const failed = await request('/auth/login', {method:'POST', body:{email:'missing@example.invalid', password:'incorrect'}});
+    assert.equal(failed.status, 401);
+  }
  } finally {await stop();await rm(directory,{recursive:true,force:true})}
 });
