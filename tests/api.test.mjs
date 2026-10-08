@@ -71,5 +71,6 @@ test('real database: authentication, ticket workflow, roles and persistence',asy
   assert.equal((await request('/auth/visitor',{method:'POST'})).status,403);
   assert.equal((await request('/tickets',{token:visitor})).status,403);
   assert.equal((await request('/tickets',{token})).status,200);
+  assert.equal((await request('/auth/login',{method:'POST'})).status,400);
  } finally {await stop();await rm(directory,{recursive:true,force:true})}
 });
