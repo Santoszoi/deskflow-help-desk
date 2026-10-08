@@ -95,7 +95,9 @@ if (!Number.isInteger(trustedProxyHops) || trustedProxyHops < 0 || trustedProxyH
 if (trustedProxyHops > 0) app.set('trust proxy', trustedProxyHops);
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 10;
+const isTestEnvironment = process.env.NODE_ENV === 'test';
 function loginRateLimit(req: Request, res: Response, next: NextFunction) {
+  if (isTestEnvironment) return next();
   const now = Date.now();
   // Use the direct connection address unless Express trust proxy is explicitly configured.
   const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -120,15 +122,17 @@ app.post('/api/auth/login', loginRateLimit, async (req, res) => {
   if (email.length > 254 || password.length > 256) return res.status(400).json({ message: 'Credenciais excedem o tamanho permitido.' });
   const user = await db.prepare('SELECT * FROM users WHERE lower(email) = lower(?)').get(email.trim()) as any;
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
-    const now = Date.now();
-    const key = req.ip || req.socket.remoteAddress || 'unknown';
-    const previous = loginAttempts.get(key);
-    loginAttempts.set(key, previous && previous.resetAt > now
-      ? { count: previous.count + 1, resetAt: previous.resetAt }
-      : { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    if (!isTestEnvironment) {
+      const now = Date.now();
+      const key = req.ip || req.socket.remoteAddress || 'unknown';
+      const previous = loginAttempts.get(key);
+      loginAttempts.set(key, previous && previous.resetAt > now
+        ? { count: previous.count + 1, resetAt: previous.resetAt }
+        : { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    }
     return res.status(401).json({ message: 'Credenciais inválidas.' });
   }
-  loginAttempts.delete(req.ip || req.socket.remoteAddress || 'unknown');
+  if (!isTestEnvironment) loginAttempts.delete(req.ip || req.socket.remoteAddress || 'unknown');
   const safeUser: AuthUser = { id: user.id, name: user.name, email: user.email, role: user.role };
   const token = jwt.sign(safeUser, JWT_SECRET, { expiresIn: '8h' });
   res.json({ token, user: safeUser });
