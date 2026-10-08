@@ -87,6 +87,12 @@ app.post('/api/auth/visitor', (_req, res) => {
 
 // In-memory login throttling. For multi-instance deployments, use a shared store (e.g. Redis).
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+// Trust only the configured number of reverse proxies. Never trust arbitrary forwarded headers.
+const trustedProxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
+if (!Number.isInteger(trustedProxyHops) || trustedProxyHops < 0 || trustedProxyHops > 5) {
+  throw new Error('TRUST_PROXY_HOPS must be an integer from 0 to 5.');
+}
+if (trustedProxyHops > 0) app.set('trust proxy', trustedProxyHops);
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_MAX_ATTEMPTS = 10;
 function loginRateLimit(req: Request, res: Response, next: NextFunction) {
