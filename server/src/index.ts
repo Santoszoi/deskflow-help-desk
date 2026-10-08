@@ -109,7 +109,7 @@ function loginRateLimit(req: Request, res: Response, next: NextFunction) {
 }
 
 app.post('/api/auth/login', loginRateLimit, async (req, res) => {
-  const { email, password } = req.body as { email?: unknown; password?: unknown };
+  const { email, password } = (req.body ?? {}) as { email?: unknown; password?: unknown };
   if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) return res.status(400).json({ message: 'E-mail e senha são obrigatórios.' });
   if (email.length > 254 || password.length > 256) return res.status(400).json({ message: 'Credenciais excedem o tamanho permitido.' });
   const user = await db.prepare('SELECT * FROM users WHERE lower(email) = lower(?)').get(email.trim()) as any;
