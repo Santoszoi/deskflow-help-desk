@@ -72,7 +72,7 @@ test('real database: authentication, ticket workflow, roles and persistence',asy
   assert.equal((await request('/tickets',{token:visitor})).status,403);
   assert.equal((await request('/tickets',{token})).status,200);
   assert.equal((await request('/auth/login',{method:'POST'})).status,400);
-  for (let attempt = 0; attempt < 9; attempt++) {
+  for (let attempt = 0; attempt < 10; attempt++) {
     const failed = await request('/auth/login', {method:'POST', body:{email:'missing@example.invalid', password:'incorrect'}});
     assert.equal(failed.status, 401);
   }
