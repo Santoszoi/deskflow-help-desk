@@ -1,17 +1,42 @@
-name: DeskFlow API tests
+name: DeskFlow validation
 on:
   push:
     branches: [main, "security/**"]
   pull_request:
     branches: [main]
+permissions:
+  contents: read
 jobs:
-  test:
+  validation:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
-      - run: npm ci
-      - run: npm test
+          cache-dependency-path: |
+            package-lock.json
+            client/package-lock.json
+            server/package-lock.json
+      - name: Install root dependencies
+        run: npm ci
+      - name: Install frontend dependencies
+        run: npm ci --prefix client
+      - name: Install backend dependencies
+        run: npm ci --prefix server
+      - name: Audit frontend dependencies
+        run: npm audit --prefix client --audit-level=high
+      - name: Audit backend dependencies
+        run: npm audit --prefix server --audit-level=high
+      - name: Build backend
+        run: npm run build --prefix server
+      - name: Typecheck frontend
+        run: npm run typecheck --prefix client
+      - name: Build frontend
+        run: npm run build --prefix client
+      - name: API integration tests
+        run: npm test
