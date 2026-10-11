@@ -43,7 +43,7 @@ npm run dev
 
 Open **http://localhost:3000** and choose **Entrar como visitante**. No password is needed for this isolated read-only mode. For the editable workflow, use the local [demonstration accounts](docs/SETUP.md#staff-demonstration-accounts).
 
-The [hosted application](https://deskflow-help-desk-app.netlify.app) requires Netlify team access. Review the video and source without requesting access, or contact me for a guided demonstration.
+**[Open the hosted demonstration](https://deskflow-help-desk-app.netlify.app/)**. Netlify team login is no longer required to load the site. The application retains its own access controls.
 
 ## Engineering decisions
 
