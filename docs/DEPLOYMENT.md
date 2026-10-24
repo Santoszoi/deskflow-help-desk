@@ -56,3 +56,11 @@ For a machine with Docker Compose, use the repository's `Dockerfile`, `server/Do
 ## Data preservation
 
 The application can still use `DB_CLIENT=sqlite` with its existing SQLite file. Switching to MySQL creates a separate database; it does not transfer existing records. Back up and validate an explicit export/import before switching real business data.
+
+## Login throttling and reverse proxies
+
+The API limits repeated failed login attempts per client IP (10 failures within 15 minutes, HTTP 429 with `Retry-After`). This is an in-memory, per-process safeguard; restart resets counters, and multiple instances do not share counters. For a production fleet, replace it with a shared datastore and add account-level controls.
+
+By default `TRUST_PROXY_HOPS=0` and Express uses the direct peer IP. When running behind a **known, controlled** reverse-proxy chain, set `TRUST_PROXY_HOPS` to the exact number of trusted hops (1–5) **only after** verifying the platform's forwarding-header behavior. Incorrect trust settings allow IP spoofing or cause all users to share the same rate-limit bucket. Never blindly set `trust proxy=true`.
+
+Before deploying, verify login behavior for multiple independent clients, 429 and `Retry-After`, and normal successful authentication. Keep this security change on a preview branch until the checks pass.
