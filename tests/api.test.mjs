@@ -10,14 +10,14 @@ const port=Number(process.env.TEST_PORT || 3347);
 const base=`http://127.0.0.1:${port}/api`;
 let logs='';
 let child;
-function start(demo='true', nodeEnv='rate-limit-test'){
- child=spawn(process.execPath,['server/dist/index.js'],{env:{...process.env,NODE_ENV:nodeEnv,PORT:String(port),JWT_SECRET:'test-only-secret-with-more-than-32-characters',DB_CLIENT:process.env.TEST_DB_CLIENT || 'sqlite',SQLITE_PATH:path.join(directory,'test.db'),DEMO_SEED:demo}});
+function start(demo='true', nodeEnv='rate-limit-test', proxyHops=0){
+ child=spawn(process.execPath,['server/dist/index.js'],{env:{...process.env,NODE_ENV:nodeEnv,TRUST_PROXY_HOPS:String(proxyHops),PORT:String(port),JWT_SECRET:'test-only-secret-with-more-than-32-characters',DB_CLIENT:process.env.TEST_DB_CLIENT || 'sqlite',SQLITE_PATH:path.join(directory,'test.db'),DEMO_SEED:demo}});
  child.stdout.on('data',d=>logs+=d);child.stderr.on('data',d=>logs+=d);
 }
 async function ready(){for(let i=0;i<100;i++){try {const r=await fetch(base+'/health');if(r.ok)return}catch{}if(child.exitCode!==null)throw new Error(logs);await new Promise(r=>setTimeout(r,100))}throw new Error('Server did not start: '+logs)}
 async function stop(){if(child.exitCode!==null)return;const closed=new Promise(r=>child.once('exit',r));child.kill('SIGTERM');await closed}
-async function request(route,{token,method='GET',body}={}){
- const response=await fetch(base+route,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});
+async function request(route,{token,method='GET',body,headers={}}={}){
+ const response=await fetch(base+route,{method,headers:{'Content-Type':'application/json',...headers,...(token?{Authorization:`Bearer ${token}`}:{})},...(body?{body:JSON.stringify(body)}:{})});
  return {status:response.status,data:await response.json()};
 }
 test('real database: authentication, ticket workflow, roles and persistence',async()=>{
@@ -78,6 +78,28 @@ test('real database: authentication, ticket workflow, roles and persistence',asy
   }
   const blocked = await request('/auth/login', {method:'POST', body:{email:'missing@example.invalid', password:'incorrect'}});
   assert.equal(blocked.status, 429);
+  // A proxy must be explicitly trusted before forwarded client IPs affect rate limiting.
+  await stop();start('false', 'rate-limit-test', 1);await ready();
+  const loginForIp = (ip, password='incorrect') => request('/auth/login', {
+    method:'POST', headers:{'X-Forwarded-For':ip},
+    body:{email:'admin@deskflow.local',password}
+  });
+  for (let attempt=0;attempt<10;attempt++) {
+    assert.equal((await loginForIp('198.51.100.10')).status,401);
+  }
+  const blockedFromFirstIp=await fetch(base+'/auth/login', {
+    method:'POST', headers:{'Content-Type':'application/json','X-Forwarded-For':'198.51.100.10'},
+    body:JSON.stringify({email:'admin@deskflow.local',password:'123456'})
+  });
+  assert.equal(blockedFromFirstIp.status,429);
+  assert.ok(Number(blockedFromFirstIp.headers.get('retry-after'))>0);
+  assert.equal((await loginForIp('198.51.100.11','123456')).status,200);
+  // With no trusted proxy, spoofed forwarding headers must not create new buckets.
+  await stop();start('false');await ready();
+  for (let attempt=0;attempt<10;attempt++) {
+    assert.equal((await loginForIp('198.51.100.20')).status,401);
+  }
+  assert.equal((await loginForIp('198.51.100.21')).status,429);
   await stop();start('false', 'test');await ready();
   for (let attempt = 0; attempt < 11; attempt++) {
     const failed = await request('/auth/login', {method:'POST', body:{email:'missing@example.invalid', password:'incorrect'}});
