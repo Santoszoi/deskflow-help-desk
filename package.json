@@ -12,6 +12,8 @@
     "setup": "node scripts/setup.mjs",
     "test:web": "node --test tests/web.test.mjs",
     "test:compose": "node --test tests/compose.test.mjs",
+    "test:filters": "node --test --test-timeout=30000 tests/ticket-filters.test.mjs",
+    "test:routes": "node --test --test-timeout=60000 tests/route-loading.test.mjs",
     "test:browser": "node --test tests/browser.test.mjs"
   },
   "devDependencies": {
