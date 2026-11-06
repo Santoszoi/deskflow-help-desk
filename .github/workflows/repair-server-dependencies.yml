@@ -1,0 +1,32 @@
+name: One-time backend dependency repair
+on:
+  push:
+    branches: ["security/login-rate-limit-20261008"]
+    paths:
+      - ".github/workflows/repair-server-dependencies.yml"
+permissions:
+  contents: write
+jobs:
+  repair:
+    if: github.ref == 'refs/heads/security/login-rate-limit-20261008'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Apply compatible backend security fixes
+        run: npm audit fix --prefix server --no-fund
+      - name: Verify clean backend installation
+        run: npm ci --prefix server --no-audit --no-fund
+      - name: Audit backend dependencies
+        run: npm audit --prefix server --audit-level=high
+      - name: Commit only backend dependency manifests
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server/package.json server/package-lock.json
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "fix(security): patch backend transitive dependencies"
+          git push origin HEAD:security/login-rate-limit-20261008

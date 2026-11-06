@@ -85,12 +85,54 @@ app.post('/api/auth/visitor', (_req, res) => {
   res.json({ token, user });
 });
 
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body as { email?: unknown; password?: unknown };
+// In-memory login throttling. For multi-instance deployments, use a shared store (e.g. Redis).
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+// Trust only the configured number of reverse proxies. Never trust arbitrary forwarded headers.
+const trustedProxyHops = Number(process.env.TRUST_PROXY_HOPS || 0);
+if (!Number.isInteger(trustedProxyHops) || trustedProxyHops < 0 || trustedProxyHops > 5) {
+  throw new Error('TRUST_PROXY_HOPS must be an integer from 0 to 5.');
+}
+if (trustedProxyHops > 0) app.set('trust proxy', trustedProxyHops);
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_MAX_ATTEMPTS = 10;
+const isTestEnvironment = process.env.NODE_ENV === 'test';
+function loginRateLimit(req: Request, res: Response, next: NextFunction) {
+  if (isTestEnvironment) return next();
+  const now = Date.now();
+  // Use the direct connection address unless Express trust proxy is explicitly configured.
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const key = ip;
+  if (loginAttempts.size > 10000) {
+    for (const [entryKey, entry] of loginAttempts) {
+      if (entry.resetAt <= now) loginAttempts.delete(entryKey);
+    }
+    if (loginAttempts.size > 10000) loginAttempts.clear();
+  }
+  const entry = loginAttempts.get(key);
+  if (entry && entry.resetAt > now && entry.count >= LOGIN_MAX_ATTEMPTS) {
+    res.setHeader('Retry-After', String(Math.ceil((entry.resetAt - now) / 1000)));
+    return res.status(429).json({ message: 'Muitas tentativas de acesso. Tente novamente mais tarde.' });
+  }
+  next();
+}
+
+app.post('/api/auth/login', loginRateLimit, async (req, res) => {
+  const { email, password } = (req.body ?? {}) as { email?: unknown; password?: unknown };
   if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) return res.status(400).json({ message: 'E-mail e senha são obrigatórios.' });
   if (email.length > 254 || password.length > 256) return res.status(400).json({ message: 'Credenciais excedem o tamanho permitido.' });
   const user = await db.prepare('SELECT * FROM users WHERE lower(email) = lower(?)').get(email.trim()) as any;
-  if (!user || !bcrypt.compareSync(password, user.password_hash)) return res.status(401).json({ message: 'Credenciais inválidas.' });
+  if (!user || !bcrypt.compareSync(password, user.password_hash)) {
+    if (!isTestEnvironment) {
+      const now = Date.now();
+      const key = req.ip || req.socket.remoteAddress || 'unknown';
+      const previous = loginAttempts.get(key);
+      loginAttempts.set(key, previous && previous.resetAt > now
+        ? { count: previous.count + 1, resetAt: previous.resetAt }
+        : { count: 1, resetAt: now + LOGIN_WINDOW_MS });
+    }
+    return res.status(401).json({ message: 'Credenciais inválidas.' });
+  }
+  if (!isTestEnvironment) loginAttempts.delete(req.ip || req.socket.remoteAddress || 'unknown');
   const safeUser: AuthUser = { id: user.id, name: user.name, email: user.email, role: user.role };
   const token = jwt.sign(safeUser, JWT_SECRET, { expiresIn: '8h' });
   res.json({ token, user: safeUser });
